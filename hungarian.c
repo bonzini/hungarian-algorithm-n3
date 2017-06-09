@@ -94,7 +94,7 @@ typedef struct
 
 ssize_t** kuhn_match(cell** table, size_t n, size_t m);
 static void kuhn_reduceRows(cell** t, size_t n, size_t m);
-static void kuhn_mark(cell** t, byte** marks, boolean* colCovered, size_t n, size_t m);
+static size_t kuhn_markZeroes(cell** t, byte** marks, boolean* colCovered, size_t n, size_t m);
 static size_t kuhn_markColumns(byte** marks, boolean* colCovered, size_t n, size_t m);
 static boolean kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* colCovered, size_t* primeRow, size_t* primeCol, size_t n, size_t m);
 static void kuhn_altMarks(byte** marks, size_t* altRow, size_t* altCol, ssize_t* colMarks, ssize_t* rowPrimes, size_t n, size_t m);
@@ -251,13 +251,13 @@ ssize_t** kuhn_match(cell** table, size_t n, size_t m)
         marks[i] = calloc(m, sizeof(byte));
     
     kuhn_reduceRows(table, n, m);
-    kuhn_mark(table, marks, colCovered, n, m);
+    if (kuhn_markZeroes(table, marks, colCovered, n, m) < n) {
+        do {
+            while (!kuhn_findPrime(table, marks, rowCovered, colCovered, altRow, altCol, n, m))
+	        kuhn_addAndSubtract(table, rowCovered, colCovered, n, m);
 
-    while (kuhn_markColumns(marks, colCovered, n, m) < n) {
-        while (!kuhn_findPrime(table, marks, rowCovered, colCovered, altRow, altCol, n, m))
-	    kuhn_addAndSubtract(table, rowCovered, colCovered, n, m);
-
-	kuhn_altMarks(marks, altRow, altCol, colMarks, rowPrimes, n, m);
+	    kuhn_altMarks(marks, altRow, altCol, colMarks, rowPrimes, n, m);
+        } while (kuhn_markColumns(marks, colCovered, n, m) < n);
     }
     
     free(rowCovered);
@@ -306,27 +306,32 @@ void kuhn_reduceRows(cell** t, size_t n, size_t m)
 
 
 /**
- * Create a matrix with marking of cells in the table whose
+ * Fill a matrix with marking of cells in the table whose
  * value is zero [minimal for the row]. Each marking will
  * be on an unique row and an unique column.
  * 
  * @param   t  The table in which to perform the reduction
- * @param   rowCovered   Temporary array to mark covered rows
- * @param   colCovered   Temporary array to mark covered columns
+ * @param   marks       The marking matrix
+ * @param   colCovered  An array which tells whether a column is covered
  * @param   n  The table's height
  * @param   m  The table's width
- * @return     A matrix of markings as described in the summary
+ * @return  The number of covered columns
  */
-void kuhn_mark(cell** t, byte **marks, boolean *colCovered, size_t n, size_t m)
+size_t kuhn_markZeroes(cell** t, byte **marks, boolean *colCovered, size_t n, size_t m)
 {
     size_t i, j;
+    size_t count = 0;
+
     for (i = 0; i < n; i++)
         for (j = 0; j < m; j++)
 	    if (!colCovered[j] && t[i][j] == 0) {
 	        marks[i][j] = MARKED;
 		colCovered[j] = TRUE;
+                count++;
                 break;
 	    }
+
+    return count;
 }
 
 
