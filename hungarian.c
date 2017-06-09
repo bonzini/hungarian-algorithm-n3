@@ -271,6 +271,7 @@ boolean kuhn_findPrime(cell** t, uint8_t** marks, boolean* rowCovered, boolean* 
                 break;
 	    }
 	
+	/* No other marks?  We're done.  */
 	if (j == m)
             break;
 
@@ -278,6 +279,7 @@ boolean kuhn_findPrime(cell** t, uint8_t** marks, boolean* rowCovered, boolean* 
 	rowCovered[row] = TRUE;
 	colCovered[col] = FALSE;
 	
+	/* Add zeroes to the bitmap for the now-uncovered column.  */
 	for (i = 0; i < n; i++)
 	    if (row != i && t[i][col] == 0) {
 	        if (!rowCovered[i])
@@ -286,6 +288,7 @@ boolean kuhn_findPrime(cell** t, uint8_t** marks, boolean* rowCovered, boolean* 
 	            BitSet_unset(&zeroes, i * m + col);
 	    }
 	
+	/* Remove zeroes from the bitmap for the now-covered row.  */
 	for (j = 0; j < m; j++)
 	    if (col != j && t[row][j] == 0)
 	        BitSet_unset(&zeroes, row * m + j);
