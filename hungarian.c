@@ -22,11 +22,11 @@
 #include <limits.h>
 #include <assert.h>
 
-
 #ifndef RANDOM_DEVICE
 #define RANDOM_DEVICE "/dev/urandom"
 #endif
 
+#define MAIN
 
 #define cell      long
 #define CELL_MAX  LONG_MAX
@@ -88,105 +88,6 @@ static void BitSet_unset(BitSet *this, size_t i);
 static ssize_t BitSet_any(BitSet *this) __attribute__((pure));
 
 static size_t lb(llong x) __attribute__((const));
-
-
-
-void print(cell** t, size_t n, size_t m, ssize_t** assignment);
-
-int main(int argc, char** argv)
-{
-    size_t i, j;
-    size_t n, m;
-    if (argc >= 3)
-    {
-        n = atol(argv[1]);
-        m = atol(argv[2]);
-        unsigned int seed;
-        if (argc == 3) {
-            FILE* urandom = fopen(RANDOM_DEVICE, "r");
-            fread(&seed, sizeof(unsigned int), 1, urandom);
-            fclose(urandom);
-        } else {
-            seed = atoi(argv[3]);
-        }
-        printf("seed: %u\n\n", seed);
-        srand(seed);
-    } else {
-        if (scanf(CELL_STR, &n) != 1) exit(1);
-        if (scanf(CELL_STR, &m) != 1) exit(1);
-    }
-    cell** t = malloc(n * sizeof(cell*));
-    cell** table = malloc(n * sizeof(cell*));
-    if (argc >= 3) {
-        for (i = 0; i < n; i++) {
-	    t[i] = malloc(m * sizeof(cell));
-	    table[i] = malloc(m * sizeof(cell));
-	    for (j = 0; j < m; j++)
-	        table[i][j] = t[i][j] = (cell)(random() & 63);
-	}
-    } else {
-        for (i = 0; i < n; i++) {
-	    t[i] = malloc(m * sizeof(cell));
-	    table[i] = malloc(m * sizeof(cell));
-	    for (j = 0; j < m; j++) {
-                cell x;
-                if (scanf(CELL_STR, &x) != 1) exit(1);
-	        table[i][j] = t[i][j] = x;
-	    }
-	}
-    }
-    
-    printf("\nInput:\n\n");
-    print(t, n, m, NULL);
-    
-    ssize_t** assignment = kuhn_match(table, n, m);
-    printf("\nOutput:\n\n");
-    print(t, n, m, assignment);
-    
-    cell sum = 0;
-    for (i = 0; i < n; i++) {
-        sum += t[assignment[i][0]][assignment[i][1]];
-	free(assignment[i]);
-	free(table[i]);
-	free(t[i]);
-    }
-    free(assignment);
-    free(table);
-    free(t);
-    printf("\n\nSum: %li\n\n", sum);
-    
-    return 0;
-}
-
-void print(cell** t, size_t n, size_t m, ssize_t** assignment)
-{
-    size_t i, j;
-    
-    ssize_t** assigned = malloc(n * sizeof(ssize_t*));
-    for (i = 0; i < n; i++) {
-        assigned[i] = malloc(m * sizeof(ssize_t));
-	for (j = 0; j < m; j++)
-	    assigned[i][j] = 0;
-    }
-    if (assignment != NULL)
-        for (i = 0; i < n; i++)
-	    assigned[assignment[i][0]][assignment[i][1]]++;
-    
-    for (i = 0; i < n; i++) {
-	printf("    ");
-	for (j = 0; j < m; j++) {
-	    if (assigned[i][j])
-	      printf("\033[%im", (int)(30 + assigned[i][j]));
-	    printf("%5li%s\033[m   ", (cell)(t[i][j]), (assigned[i][j] ? "^" : " "));
-        }
-	printf("\n\n");
-	
-	free(assigned[i]);
-    }
-    
-    free(assigned);
-}
-
 
 
 /**
@@ -630,3 +531,100 @@ size_t lb(llong value)
     return rc;
 }
 
+#ifdef MAIN
+void print(cell** t, size_t n, size_t m, ssize_t** assignment);
+
+int main(int argc, char** argv)
+{
+    size_t i, j;
+    size_t n, m;
+    if (argc >= 3)
+    {
+        n = atol(argv[1]);
+        m = atol(argv[2]);
+        unsigned int seed;
+        if (argc == 3) {
+            FILE* urandom = fopen(RANDOM_DEVICE, "r");
+            fread(&seed, sizeof(unsigned int), 1, urandom);
+            fclose(urandom);
+        } else {
+            seed = atoi(argv[3]);
+        }
+        printf("seed: %u\n\n", seed);
+        srand(seed);
+    } else {
+        if (scanf(CELL_STR, &n) != 1) exit(1);
+        if (scanf(CELL_STR, &m) != 1) exit(1);
+    }
+    cell** t = malloc(n * sizeof(cell*));
+    cell** table = malloc(n * sizeof(cell*));
+    if (argc >= 3) {
+        for (i = 0; i < n; i++) {
+	    t[i] = malloc(m * sizeof(cell));
+	    table[i] = malloc(m * sizeof(cell));
+	    for (j = 0; j < m; j++)
+	        table[i][j] = t[i][j] = (cell)(random() & 63);
+	}
+    } else {
+        for (i = 0; i < n; i++) {
+	    t[i] = malloc(m * sizeof(cell));
+	    table[i] = malloc(m * sizeof(cell));
+	    for (j = 0; j < m; j++) {
+                cell x;
+                if (scanf(CELL_STR, &x) != 1) exit(1);
+	        table[i][j] = t[i][j] = x;
+	    }
+	}
+    }
+
+    printf("\nInput:\n\n");
+    print(t, n, m, NULL);
+
+    ssize_t** assignment = kuhn_match(table, n, m);
+    printf("\nOutput:\n\n");
+    print(t, n, m, assignment);
+
+    cell sum = 0;
+    for (i = 0; i < n; i++) {
+        sum += t[assignment[i][0]][assignment[i][1]];
+	free(assignment[i]);
+	free(table[i]);
+	free(t[i]);
+    }
+    free(assignment);
+    free(table);
+    free(t);
+    printf("\n\nSum: %li\n\n", sum);
+
+    return 0;
+}
+
+void print(cell** t, size_t n, size_t m, ssize_t** assignment)
+{
+    size_t i, j;
+
+    ssize_t** assigned = malloc(n * sizeof(ssize_t*));
+    for (i = 0; i < n; i++) {
+        assigned[i] = malloc(m * sizeof(ssize_t));
+	for (j = 0; j < m; j++)
+	    assigned[i][j] = 0;
+    }
+    if (assignment != NULL)
+        for (i = 0; i < n; i++)
+	    assigned[assignment[i][0]][assignment[i][1]]++;
+
+    for (i = 0; i < n; i++) {
+	printf("    ");
+	for (j = 0; j < m; j++) {
+	    if (assigned[i][j])
+	      printf("\033[%im", (int)(30 + assigned[i][j]));
+	    printf("%5li%s\033[m   ", (cell)(t[i][j]), (assigned[i][j] ? "^" : " "));
+        }
+	printf("\n\n");
+	
+	free(assigned[i]);
+    }
+
+    free(assigned);
+}
+#endif
