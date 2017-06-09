@@ -173,7 +173,7 @@ int main(int argc, char** argv)
     cell sum = 0;
     for (i = 0; i < n; i++)
     {
-        sum += *(*(t + assignment[i][0]) + assignment[i][1]);
+        sum += t[assignment[i][0]][assignment[i][1]];
 	free(assignment[i]);
 	free(table[i]);
 	free(t[i]);
