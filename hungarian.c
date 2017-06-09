@@ -2,9 +2,9 @@
 
 /**
  * 𝓞(n³) implementation of the Hungarian algorithm
- * 
+ *
  * Copyright (C) 2011, 2014  Mattias Andrée
- * 
+ *
  * This program is free software. It comes without any warranty, to
  * the extent permitted by applicable law. You can redistribute it
  * and/or modify it under the terms of the Do What The Fuck You Want
@@ -52,22 +52,22 @@ typedef struct
      * The set of all limbs, a limb consist of 64 bits
      */
     llong* limbs;
-    
+
     /**
      * Index of the first non-zero limb
      */
     ssize_t first;
-    
+
     /**
      * Array the the index of the previous non-zero limb for each limb
      */
     ssize_t* prev;
-    
+
     /**
      * Array the the index of the next non-zero limb for each limb
      */
     ssize_t* next;
-    
+
 } BitSet;
 
 
@@ -94,7 +94,7 @@ static size_t lb(llong x) __attribute__((const));
  * Calculates an optimal bipartite minimum weight matching using an
  * O(n³)-time implementation of The Hungarian Algorithm, also known
  * as Kuhn's Algorithm.
- * 
+ *
  * @param   table  The table in which to perform the matching
  * @param   n      The height of the table
  * @param   m      The width of the table
@@ -103,19 +103,19 @@ static size_t lb(llong x) __attribute__((const));
 ssize_t** kuhn_match(cell** table, size_t n, size_t m)
 {
     size_t i;
-    
+
     /* not copying table since it will only be used once */
-    
+
     ssize_t* rowPrimes = malloc(n * sizeof(ssize_t));
     ssize_t* colMarks  = malloc(m * sizeof(ssize_t));
 
     boolean* rowCovered = calloc(n, sizeof(boolean));
     boolean* colCovered = calloc(m, sizeof(boolean));
-    
+
     uint8_t** marks = malloc(n * sizeof(uint8_t*));
     for (i = 0; i < n; i++)
         marks[i] = calloc(m, sizeof(uint8_t));
-    
+
     kuhn_reduceRows(table, n, m);
     if (kuhn_markZeroes(table, marks, colCovered, n, m) < n) {
         do {
@@ -126,18 +126,18 @@ ssize_t** kuhn_match(cell** table, size_t n, size_t m)
 	    kuhn_altMarks(marks, primeRow, primeCol, colMarks, rowPrimes, n, m);
         } while (kuhn_countColumns(marks, colCovered, n, m) < n);
     }
-    
+
     free(rowCovered);
     free(colCovered);
     free(rowPrimes);
     free(colMarks);
-    
+
     ssize_t** rc = kuhn_assign(marks, n, m);
-    
+
     for (i = 0; i < n; i++)
         free(marks[i]);
     free(marks);
-    
+
     return rc;
 }
 
@@ -146,7 +146,7 @@ ssize_t** kuhn_match(cell** table, size_t n, size_t m)
  * Reduces the values on each rows so that, for each row, the
  * lowest cells value is zero, and all cells' values is decrease
  * with the same value [the minium value in the row].
- * 
+ *
  * @param  t  The table in which to perform the reduction
  * @param  n  The table's height
  * @param  m  The table's width
@@ -173,7 +173,7 @@ void kuhn_reduceRows(cell** t, size_t n, size_t m)
  * Fill a matrix with marking of cells in the table whose
  * value is zero [minimal for the row]. Each marking will
  * be on an unique row and an unique column.
- * 
+ *
  * @param   t  The table in which to perform the reduction
  * @param   marks       The marking matrix
  * @param   colCovered  An array which tells whether a column is covered
@@ -223,14 +223,14 @@ size_t kuhn_countColumns(uint8_t** marks, boolean* colCovered, size_t n, size_t 
                 count++;
 		break;
 	    }
-    
+
     return count;
 }
 
 
 /**
  * Finds a prime
- * 
+ *
  * @param   t           The table
  * @param   marks       The marking matrix
  * @param   rowCovered  Row cover array
@@ -244,9 +244,9 @@ boolean kuhn_findPrime(cell** t, uint8_t** marks, boolean* rowCovered, boolean* 
     size_t i, j;
     size_t row, col;
     BitSet zeroes;
-   
+
     BitSet_init(&zeroes, n * m);
-    
+
     for (i = 0; i < n; i++)
 	for (j = 0; j < m; j++)
 	    if (!colCovered[j] && t[i][j] == 0)
@@ -322,19 +322,19 @@ static inline void kuhn_altMark(uint8_t **marks, ssize_t currRow, ssize_t currCo
 void kuhn_altMarks(uint8_t** marks, ssize_t currRow, ssize_t currCol, ssize_t* colMarks, ssize_t* rowPrimes, size_t n, size_t m)
 {
     size_t index = 0, i, j;
-    
+
     for (i = 0; i < n; i++)
         rowPrimes[i] = -1;
     for (j = 0; j < m; j++)
         colMarks[j] = -1;
-    
+
     for (i = 0; i < n; i++)
         for (j = 0; j < m; j++)
 	    if (marks[i][j] == MARKED)
 	        colMarks[j] = (ssize_t)i;
 	    else if (marks[i][j] == PRIME)
 	        rowPrimes[i] = (ssize_t)j;
-    
+
     kuhn_altMark(marks, currRow, currCol);
     for (;;) {
         currRow = colMarks[currCol];
@@ -346,7 +346,7 @@ void kuhn_altMarks(uint8_t** marks, ssize_t currRow, ssize_t currCol, ssize_t* c
         assert(currCol >= 0);
         kuhn_altMark(marks, currRow, currCol);
     }
-    
+
     for (i = 0; i < n; i++) {
         uint8_t *marksi = marks[i];
         for (j = 0; j < m; j++)
@@ -395,7 +395,7 @@ void kuhn_addAndSubtract(cell** t, boolean* rowCovered, boolean* colCovered, siz
 
 /**
  * Creates a list of the assignment cells
- * 
+ *
  * @param   marks  Matrix markings
  * @param   n      The table's height
  * @param   m      The table's width
@@ -404,7 +404,7 @@ void kuhn_addAndSubtract(cell** t, boolean* rowCovered, boolean* colCovered, siz
 ssize_t** kuhn_assign(uint8_t** marks, size_t n, size_t m)
 {
     ssize_t** assignment = malloc(n * sizeof(ssize_t*));
-    
+
     size_t i, j;
     for (i = 0; i < n; i++) {
         assignment[i] = malloc(2 * sizeof(ssize_t));
@@ -414,7 +414,7 @@ ssize_t** kuhn_assign(uint8_t** marks, size_t n, size_t m)
 		assignment[i][1] = (ssize_t)j;
 	    }
     }
-    
+
     return assignment;
 }
 
@@ -430,7 +430,7 @@ void BitSet_init(BitSet *this, size_t size)
     size_t c = size >> 6L;
     if (size & 63L)
         c++;
-    
+
     this->limbs = calloc(c, sizeof(llong));
     this->prev = calloc(c, sizeof(size_t));
     this->next = calloc(c, sizeof(size_t));
@@ -446,7 +446,7 @@ void BitSet_free(BitSet *this)
 
 /**
  * Turns on a bit in a bit set
- * 
+ *
  * @param  this  The bit set
  * @param  i     The index of the bit to turn on
  */
@@ -454,9 +454,9 @@ void BitSet_set(BitSet *this, size_t i)
 {
     size_t j = i >> 6L;
     llong old = this->limbs[j];
-    
+
     this->limbs[j] |= 1LL << (llong)(i & 63L);
-    
+
     if (!old) {
         if (this->first != -1)
 	    this->prev[this->first] = j;
@@ -468,7 +468,7 @@ void BitSet_set(BitSet *this, size_t i)
 
 /**
  * Turns off a bit in a bit set
- * 
+ *
  * @param  this  The bit set
  * @param  i     The index of the bit to turn off
  */
@@ -476,12 +476,12 @@ void BitSet_unset(BitSet *this, size_t i)
 {
     size_t j = i >> 6L;
     llong old = this->limbs[j];
-    
+
     if (!old)
         return;
 
     this->limbs[j] &= ~(1LL << (llong)(i & 63L));
-    
+
     if (!this->limbs[j]) {
 	size_t p = this->prev[j];
 	size_t n = this->next[j];
@@ -496,7 +496,7 @@ void BitSet_unset(BitSet *this, size_t i)
 
 /**
  * Gets the index of any set bit in a bit set
- * 
+ *
  * @param   this  The bit set
  * @return        The index of any set bit
  */
@@ -505,7 +505,7 @@ ssize_t BitSet_any(BitSet *this)
     ssize_t i = this->first;
     if (i == -1)
         return -1;
-    
+
     return (ssize_t)(lb(this->limbs[i] & -this->limbs[i]) + (i << 6L));
 }
 
@@ -520,14 +520,14 @@ size_t lb(llong value)
 {
     size_t rc = 0;
     llong v = value;
-    
+
     if (v & (int_fast64_t)0xFFFFFFFF00000000LL)  {  rc |= 32L;  v >>= 32LL;  }
     if (v & (int_fast64_t)0x00000000FFFF0000LL)  {  rc |= 16L;  v >>= 16LL;  }
     if (v & (int_fast64_t)0x000000000000FF00LL)  {  rc |=  8L;  v >>=  8LL;  }
     if (v & (int_fast64_t)0x00000000000000F0LL)  {  rc |=  4L;  v >>=  4LL;  }
     if (v & (int_fast64_t)0x000000000000000CLL)  {  rc |=  2L;  v >>=  2LL;  }
     if (v & (int_fast64_t)0x0000000000000002LL)     rc |=  1L;
-    
+
     return rc;
 }
 
