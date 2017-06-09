@@ -131,32 +131,24 @@ int main(int argc, char** argv)
         }
         printf("seed: %u\n\n", seed);
         srand(seed);
-    }
-    else
-    {
+    } else {
         if (scanf(CELL_STR, &n) != 1) exit(1);
         if (scanf(CELL_STR, &m) != 1) exit(1);
     }
     cell** t = malloc(n * sizeof(cell*));
     cell** table = malloc(n * sizeof(cell*));
-    if (argc >= 3)
-    {
-        for (i = 0; i < n; i++)
-	{
+    if (argc >= 3) {
+        for (i = 0; i < n; i++) {
 	    t[i] = malloc(m * sizeof(cell));
 	    table[i] = malloc(m * sizeof(cell));
 	    for (j = 0; j < m; j++)
 	        table[i][j] = t[i][j] = (cell)(random() & 63);
 	}
-    }
-    else
-    {
-        for (i = 0; i < n; i++)
-	{
+    } else {
+        for (i = 0; i < n; i++) {
 	    t[i] = malloc(m * sizeof(cell));
 	    table[i] = malloc(m * sizeof(cell));
-	    for (j = 0; j < m; j++)
-	    {
+	    for (j = 0; j < m; j++) {
                 cell x;
                 if (scanf(CELL_STR, &x) != 1) exit(1);
 	        table[i][j] = t[i][j] = x;
@@ -172,8 +164,7 @@ int main(int argc, char** argv)
     print(t, n, m, assignment);
     
     cell sum = 0;
-    for (i = 0; i < n; i++)
-    {
+    for (i = 0; i < n; i++) {
         sum += t[assignment[i][0]][assignment[i][1]];
 	free(assignment[i]);
 	free(table[i]);
@@ -192,8 +183,7 @@ void print(cell** t, size_t n, size_t m, ssize_t** assignment)
     size_t i, j;
     
     ssize_t** assigned = malloc(n * sizeof(ssize_t*));
-    for (i = 0; i < n; i++)
-    {
+    for (i = 0; i < n; i++) {
         assigned[i] = malloc(m * sizeof(ssize_t));
 	for (j = 0; j < m; j++)
 	    assigned[i][j] = 0;
@@ -202,11 +192,9 @@ void print(cell** t, size_t n, size_t m, ssize_t** assignment)
         for (i = 0; i < n; i++)
 	    assigned[assignment[i][0]][assignment[i][1]]++;
     
-    for (i = 0; i < n; i++)
-    {
+    for (i = 0; i < n; i++) {
 	printf("    ");
-	for (j = 0; j < m; j++)
-	{
+	for (j = 0; j < m; j++) {
 	    if (assigned[i][j])
 	      printf("\033[%im", (int)(30 + assigned[i][j]));
 	    printf("%5li%s\033[m   ", (cell)(t[i][j]), (assigned[i][j] ? "^" : " "));
@@ -291,8 +279,7 @@ void kuhn_reduceRows(cell** t, size_t n, size_t m)
     size_t i, j;
     cell min;
     cell* ti;
-    for (i = 0; i < n; i++)
-    {
+    for (i = 0; i < n; i++) {
         ti = t[i];
         min = ti[0];
 	for (j = 1; j < m; j++)
@@ -354,8 +341,7 @@ size_t kuhn_markColumns(byte** marks, boolean* colCovered, size_t n, size_t m)
     memset(colCovered, 0, m);
     for (j = 0; j < m; j++)
         for (i = 0; i < n; i++)
-	    if (marks[i][j] == MARKED)
-	    {
+	    if (marks[i][j] == MARKED) {
 	        colCovered[j] = TRUE;
                 count++;
 		break;
@@ -390,11 +376,9 @@ boolean kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* col
 		BitSet_set(&zeroes, i * m + j);
 
     memset(rowCovered, 0, n);
-    for (;;)
-    {
+    for (;;) {
         ssize_t p = BitSet_any(&zeroes);
-	if (p < 0)
-        {
+	if (p < 0) {
 	    BitSet_free(&zeroes);
 	    return FALSE;
 	}
@@ -418,8 +402,7 @@ boolean kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* col
 	colCovered[col] = FALSE;
 	
 	for (i = 0; i < n; i++)
-	    if (row != i && t[i][col] == 0)
-	    {
+	    if (row != i && t[i][col] == 0) {
 	        if (!rowCovered[i])
 	            BitSet_set(&zeroes, i * m + col);
 	        else
@@ -468,8 +451,7 @@ void kuhn_altMarks(byte** marks, size_t* altRow, size_t* altCol, ssize_t* colMar
 	        rowPrimes[i] = (ssize_t)j;
     
     ssize_t row, col;
-    for (;;)
-    {
+    for (;;) {
         row = colMarks[altCol[index]];
 	if (row < 0)
 	    break;
@@ -485,8 +467,7 @@ void kuhn_altMarks(byte** marks, size_t* altRow, size_t* altCol, ssize_t* colMar
 	altCol[index] = (size_t)col;
     }
     
-    for (i = 0; i <= index; i++)
-    {
+    for (i = 0; i <= index; i++) {
         byte *markx = &marks[altRow[i]][altCol[i]];
         if (*markx == MARKED)
 	    *markx = UNMARKED;
@@ -495,8 +476,7 @@ void kuhn_altMarks(byte** marks, size_t* altRow, size_t* altCol, ssize_t* colMar
     }
     
     byte* marksi;
-    for (i = 0; i < n; i++)
-    {
+    for (i = 0; i < n; i++) {
         marksi = marks[i];
         for (j = 0; j < m; j++)
 	    if (marksi[j] == PRIME)
@@ -550,12 +530,10 @@ ssize_t** kuhn_assign(byte** marks, size_t n, size_t m)
     ssize_t** assignment = malloc(n * sizeof(ssize_t*));
     
     size_t i, j;
-    for (i = 0; i < n; i++)
-    {
+    for (i = 0; i < n; i++) {
         assignment[i] = malloc(2 * sizeof(ssize_t));
         for (j = 0; j < m; j++)
-	    if (marks[i][j] == MARKED)
-	    {
+	    if (marks[i][j] == MARKED) {
 		assignment[i][0] = (ssize_t)i;
 		assignment[i][1] = (ssize_t)j;
 	    }
@@ -603,8 +581,7 @@ void BitSet_set(BitSet *this, size_t i)
     
     this->limbs[j] |= 1LL << (llong)(i & 63L);
     
-    if (!old)
-    {
+    if (!old) {
         if (this->first != -1)
 	    this->prev[this->first] = j;
 	this->prev[j] = -1;
@@ -629,8 +606,7 @@ void BitSet_unset(BitSet *this, size_t i)
 
     this->limbs[j] &= ~(1LL << (llong)(i & 63L));
     
-    if (!this->limbs[j])
-    {
+    if (!this->limbs[j]) {
 	size_t p = this->prev[j];
 	size_t n = this->next[j];
         if (n != -1)
