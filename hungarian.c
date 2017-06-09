@@ -91,20 +91,20 @@ typedef struct
 
 
 ssize_t** kuhn_match(cell** table, size_t n, size_t m);
-void kuhn_reduceRows(cell** t, size_t n, size_t m);
-byte** kuhn_mark(cell** t, size_t n, size_t m);
-boolean kuhn_isDone(byte** marks, boolean* colCovered, size_t n, size_t m);
-size_t* kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* colCovered, size_t n, size_t m);
-void kuhn_altMarks(byte** marks, size_t* altRow, size_t* altCol, ssize_t* colMarks, ssize_t* rowPrimes, size_t* prime, size_t n, size_t m);
-void kuhn_addAndSubtract(cell** t, boolean* rowCovered, boolean* colCovered, size_t n, size_t m);
-ssize_t** kuhn_assign(byte** marks, size_t n, size_t m);
+static void kuhn_reduceRows(cell** t, size_t n, size_t m);
+static byte** kuhn_mark(cell** t, size_t n, size_t m);
+static boolean kuhn_isDone(byte** marks, boolean* colCovered, size_t n, size_t m);
+static size_t* kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* colCovered, size_t n, size_t m);
+static void kuhn_altMarks(byte** marks, size_t* altRow, size_t* altCol, ssize_t* colMarks, ssize_t* rowPrimes, size_t* prime, size_t n, size_t m);
+static void kuhn_addAndSubtract(cell** t, boolean* rowCovered, boolean* colCovered, size_t n, size_t m);
+static ssize_t** kuhn_assign(byte** marks, size_t n, size_t m);
 
-BitSet new_BitSet(size_t size);
-void BitSet_set(BitSet this, size_t i);
-void BitSet_unset(BitSet this, size_t i);
-ssize_t BitSet_any(BitSet this) __attribute__((pure));
+static BitSet new_BitSet(size_t size);
+static void BitSet_set(BitSet this, size_t i);
+static void BitSet_unset(BitSet this, size_t i);
+static ssize_t BitSet_any(BitSet this) __attribute__((pure));
 
-size_t lb(llong x) __attribute__((const));
+static size_t lb(llong x) __attribute__((const));
 
 
 
@@ -112,19 +112,32 @@ void print(cell** t, size_t n, size_t m, ssize_t** assignment);
 
 int main(int argc, char** argv)
 {
-    FILE* urandom = fopen(RANDOM_DEVICE, "r");
-    unsigned int seed;
-    fread(&seed, sizeof(unsigned int), 1, urandom);
-    srand(seed);
-    fclose(urandom);
-    
-    
     size_t i, j;
-    size_t n = argc < 3 ? 10 : (size_t)atol(*(argv + 1));
-    size_t m = argc < 3 ? 15 : (size_t)atol(*(argv + 2));
+    size_t n, m;
+    if (argc >= 3)
+    {
+        n = atol(argv[1]);
+        m = atol(argv[2]);
+        unsigned int seed;
+        if (argc == 3) {
+            FILE* urandom = fopen(RANDOM_DEVICE, "r");
+            fread(&seed, sizeof(unsigned int), 1, urandom);
+            fclose(urandom);
+        } else {
+            seed = atoi(argv[3]);
+        }
+        printf("seed: %u\n\n", seed);
+        srand(seed);
+    }
+    else
+    {
+        if (scanf(CELL_STR, &n) != 1) exit(1);
+        if (scanf(CELL_STR, &m) != 1) exit(1);
+    }
     cell** t = malloc(n * sizeof(cell*));
     cell** table = malloc(n * sizeof(cell*));
-    if (argc < 3)
+    if (argc >= 3)
+    {
         for (i = 0; i < n; i++)
 	{
 	    *(t + i) = malloc(m * sizeof(cell));
@@ -132,16 +145,17 @@ int main(int argc, char** argv)
 	    for (j = 0; j < m; j++)
 	        *(*(table + i) + j) = *(*(t + i) + j) = (cell)(random() & 63);
 	}
+    }
     else
     {
-        cell x;
         for (i = 0; i < n; i++)
 	{
 	    *(t + i) = malloc(m * sizeof(cell));
 	    *(table + i) = malloc(m * sizeof(cell));
 	    for (j = 0; j < m; j++)
 	    {
-	        scanf(CELL_STR, &x);
+                cell x;
+                if (scanf(CELL_STR, &x) != 1) exit(1);
 	        *(*(table + i) + j) = *(*(t + i) + j) = x;
 	    }
 	}
