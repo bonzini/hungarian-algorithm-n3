@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 
 
 #ifndef RANDOM_DEVICE
@@ -26,12 +27,11 @@
 #define cell      long
 #define CELL_STR  "%li"
 
-#define llong    int_fast64_t
-#define byte     int_fast8_t
-#define boolean  int_fast8_t
-#define null     0
-#define true     1
-#define false    0
+typedef uintptr_t llong;
+typedef int_fast8_t byte;
+typedef unsigned char boolean;
+#define TRUE     1
+#define FALSE    0
 
 
 
@@ -162,7 +162,7 @@ int main(int argc, char** argv)
     }
     
     printf("\nInput:\n\n");
-    print(t, n, m, null);
+    print(t, n, m, NULL);
     
     ssize_t** assignment = kuhn_match(table, n, m);
     printf("\nOutput:\n\n");
@@ -195,7 +195,7 @@ void print(cell** t, size_t n, size_t m, ssize_t** assignment)
 	for (j = 0; j < m; j++)
 	    *(*(assigned + i) + j) = 0;
     }
-    if (assignment != null)
+    if (assignment != NULL)
         for (i = 0; i < n; i++)
 	    (*(*(assigned + **(assignment + i)) + *(*(assignment + i) + 1)))++;
     
@@ -237,15 +237,8 @@ ssize_t** kuhn_match(cell** table, size_t n, size_t m)
     kuhn_reduceRows(table, n, m);
     byte** marks = kuhn_mark(table, n, m);
     
-    boolean* rowCovered = malloc(n * sizeof(boolean));
-    boolean* colCovered = malloc(m * sizeof(boolean));
-    for (i = 0; i < n; i++)
-    {
-        *(rowCovered + i) = false;
-        *(colCovered + i) = false;
-    }
-    for (i = n; i < m; i++)
-        *(colCovered + i) = false;
+    boolean* rowCovered = calloc(n, sizeof(boolean));
+    boolean* colCovered = calloc(m, sizeof(boolean));
     
     size_t* altRow = malloc(n * m * sizeof(ssize_t));
     size_t* altCol = malloc(n * m * sizeof(ssize_t));
@@ -263,16 +256,11 @@ ssize_t** kuhn_match(cell** table, size_t n, size_t m)
         for (;;)
 	{
 	    prime = kuhn_findPrime(table, marks, rowCovered, colCovered, n, m);
-	    if (prime != null)
+	    if (prime)
 	    {
 		kuhn_altMarks(marks, altRow, altCol, colMarks, rowPrimes, prime, n, m);
-		for (i = 0; i < n; i++)
-		{
-		    *(rowCovered + i) = false;
-		    *(colCovered + i) = false;
-		}
-		for (i = n; i < m; i++)
-		    *(colCovered + i) = false;
+                memset(rowCovered, 0, n);
+                memset(colCovered, 0, m);
 		free(prime);
 		break;
 	    }
@@ -351,19 +339,19 @@ byte** kuhn_mark(cell** t, size_t n, size_t m)
     boolean* colCovered = malloc(m * sizeof(boolean));
     for (i = 0; i < n; i++)
     {
-        *(rowCovered + i) = false;
-        *(colCovered + i) = false;
+        *(rowCovered + i) = FALSE;
+        *(colCovered + i) = FALSE;
     }
     for (i = 0; i < m; i++)
-        *(colCovered + i) = false;
+        *(colCovered + i) = FALSE;
     
     for (i = 0; i < n; i++)
         for (j = 0; j < m; j++)
 	    if ((!*(rowCovered + i)) && (!*(colCovered + j)) && (*(*(t + i) + j) == 0))
 	    {
 	        *(*(marks + i) + j) = MARKED;
-		*(rowCovered + i) = true;
-		*(colCovered + j) = true;
+		*(rowCovered + i) = TRUE;
+		*(colCovered + j) = TRUE;
 	    }
     
     free(rowCovered);
@@ -389,7 +377,7 @@ boolean kuhn_isDone(byte** marks, boolean* colCovered, size_t n, size_t m)
         for (i = 0; i < n; i++)
 	    if (*(*(marks + i) + j) == MARKED)
 	    {
-	        *(colCovered + j) = true;
+	        *(colCovered + j) = TRUE;
 		break;
 	    }
     
@@ -411,7 +399,7 @@ boolean kuhn_isDone(byte** marks, boolean* colCovered, size_t n, size_t m)
  * @param   colCovered  Column cover array
  * @param   n           The table's height
  * @param   m           The table's width
- * @return              The row and column of the found print, <code>null</code> will be returned if none can be found
+ * @return              The row and column of the found print, <code>NULL</code> will be returned if none can be found
  */
 size_t* kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* colCovered, size_t n, size_t m)
 {
@@ -437,7 +425,7 @@ size_t* kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* col
 	    free(zeroes.first);
 	    free(zeroes.next);
 	    free(zeroes.prev);
-	    return null;
+	    return NULL;
 	}
 	
 	row = (size_t)p / m;
@@ -445,18 +433,18 @@ size_t* kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* col
 	
 	*(*(marks + row) + col) = PRIME;
 	
-	markInRow = false;
+	markInRow = FALSE;
 	for (j = 0; j < m; j++)
 	    if (*(*(marks + row) + j) == MARKED)
 	    {
-		markInRow = true;
+		markInRow = TRUE;
 		col = j;
 	    }
 	
 	if (markInRow)
 	{
-	    *(rowCovered + row) = true;
-	    *(colCovered + col) = false;
+	    *(rowCovered + row) = TRUE;
+	    *(colCovered + col) = FALSE;
 	    
 	    for (i = 0; i < n; i++)
 	        if ((*(*(t + i) + col) == 0) && (row != i))
@@ -594,7 +582,7 @@ void kuhn_addAndSubtract(cell** t, boolean* rowCovered, boolean* colCovered, siz
 	{
 	    if (*(rowCovered + i))
 	        *(*(t + i) + j) += min;
-	    if (*(colCovered + j) == false)
+	    if (!*(colCovered + j))
 	        *(*(t + i) + j) -= min;
 	}
 }
