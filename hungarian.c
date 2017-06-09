@@ -73,13 +73,6 @@ typedef struct
 
 
 ssize_t** kuhn_match(cell** table, size_t n, size_t m);
-static void kuhn_reduceRows(cell** t, size_t n, size_t m);
-static size_t kuhn_markZeroes(cell** t, uint8_t** marks, boolean* colCovered, size_t n, size_t m);
-static size_t kuhn_countColumns(uint8_t** marks, boolean* colCovered, size_t n, size_t m);
-static boolean kuhn_findPrime(cell** t, uint8_t** marks, boolean* rowCovered, boolean* colCovered, size_t* primeRow, size_t* primeCol, size_t n, size_t m);
-static void kuhn_altMarks(uint8_t** marks, ssize_t currRow, ssize_t currCol, ssize_t* colMarks, ssize_t* rowPrimes, size_t n, size_t m);
-static void kuhn_addAndSubtract(cell** t, boolean* rowCovered, boolean* colCovered, size_t n, size_t m);
-static ssize_t** kuhn_assign(uint8_t** marks, size_t n, size_t m);
 
 static void BitSet_init(BitSet *this, size_t size);
 static void BitSet_free(BitSet *this);
@@ -89,6 +82,32 @@ static ssize_t BitSet_any(BitSet *this) __attribute__((pure));
 
 static size_t lb(llong x) __attribute__((const));
 
+/* @param   table  The table in which to perform the reduction
+ * @param   marks       The marking matrix
+ * @param   colCovered  An array which tells whether a column is covered
+ * @param   rowCovered  An array which tells whether a row is covered
+ * @param  colMarks   Markings in the columns
+ * @param  rowPrimes  Primes in the rows
+ * @param   n  The table's height
+ * @param   m  The table's width
+ */
+struct kuhn_data {
+    size_t n, m;
+    cell** table;
+    uint8_t** marks;
+    ssize_t* rowPrimes;
+    ssize_t* colMarks;
+    boolean* rowCovered;
+    boolean* colCovered;
+};
+
+static void kuhn_reduceRows(struct kuhn_data *k);
+static size_t kuhn_markZeroes(struct kuhn_data *k);
+static size_t kuhn_countColumns(struct kuhn_data *k);
+static boolean kuhn_findPrime(struct kuhn_data *k, size_t* primeRow, size_t* primeCol);
+static void kuhn_altMarks(struct kuhn_data *k, ssize_t currRow, ssize_t currCol);
+static void kuhn_addAndSubtract(struct kuhn_data *k);
+static ssize_t** kuhn_assign(struct kuhn_data *k);
 
 /**
  * Calculates an optimal bipartite minimum weight matching using an
@@ -103,40 +122,44 @@ static size_t lb(llong x) __attribute__((const));
 ssize_t** kuhn_match(cell** table, size_t n, size_t m)
 {
     size_t i;
+    struct kuhn_data k;
 
     /* not copying table since it will only be used once */
+    k.n = n;
+    k.m = m;
+    k.table = table;
 
-    ssize_t* rowPrimes = malloc(n * sizeof(ssize_t));
-    ssize_t* colMarks  = malloc(m * sizeof(ssize_t));
+    k.rowPrimes = malloc(n * sizeof(ssize_t));
+    k.colMarks  = malloc(m * sizeof(ssize_t));
 
-    boolean* rowCovered = calloc(n, sizeof(boolean));
-    boolean* colCovered = calloc(m, sizeof(boolean));
+    k.rowCovered = calloc(n, sizeof(boolean));
+    k.colCovered = calloc(m, sizeof(boolean));
 
-    uint8_t** marks = malloc(n * sizeof(uint8_t*));
+    k.marks = malloc(n * sizeof(uint8_t*));
     for (i = 0; i < n; i++)
-        marks[i] = calloc(m, sizeof(uint8_t));
+        k.marks[i] = calloc(m, sizeof(uint8_t));
 
-    kuhn_reduceRows(table, n, m);
-    if (kuhn_markZeroes(table, marks, colCovered, n, m) < n) {
+    kuhn_reduceRows(&k);
+    if (kuhn_markZeroes(&k) < n) {
         do {
             size_t primeRow, primeCol;
-            while (!kuhn_findPrime(table, marks, rowCovered, colCovered, &primeRow, &primeCol, n, m))
-	        kuhn_addAndSubtract(table, rowCovered, colCovered, n, m);
+            while (!kuhn_findPrime(&k, &primeRow, &primeCol))
+	        kuhn_addAndSubtract(&k);
 
-	    kuhn_altMarks(marks, primeRow, primeCol, colMarks, rowPrimes, n, m);
-        } while (kuhn_countColumns(marks, colCovered, n, m) < n);
+	    kuhn_altMarks(&k, primeRow, primeCol);
+        } while (kuhn_countColumns(&k) < n);
     }
 
-    free(rowCovered);
-    free(colCovered);
-    free(rowPrimes);
-    free(colMarks);
+    free(k.rowCovered);
+    free(k.colCovered);
+    free(k.rowPrimes);
+    free(k.colMarks);
 
-    ssize_t** rc = kuhn_assign(marks, n, m);
+    ssize_t** rc = kuhn_assign(&k);
 
     for (i = 0; i < n; i++)
-        free(marks[i]);
-    free(marks);
+        free(k.marks[i]);
+    free(k.marks);
 
     return rc;
 }
@@ -147,23 +170,21 @@ ssize_t** kuhn_match(cell** table, size_t n, size_t m)
  * lowest cells value is zero, and all cells' values is decrease
  * with the same value [the minium value in the row].
  *
- * @param  t  The table in which to perform the reduction
- * @param  n  The table's height
- * @param  m  The table's width
+ * @param k The data from kuhn_match
  */
-void kuhn_reduceRows(cell** t, size_t n, size_t m)
+void kuhn_reduceRows(struct kuhn_data *k)
 {
     size_t i, j;
     cell min;
     cell* ti;
-    for (i = 0; i < n; i++) {
-        ti = t[i];
+    for (i = 0; i < k->n; i++) {
+        ti = k->table[i];
         min = ti[0];
-	for (j = 1; j < m; j++)
+	for (j = 1; j < k->m; j++)
 	    if (min > ti[j])
 	        min = ti[j];
 	
-	for (j = 0; j < m; j++)
+	for (j = 0; j < k->m; j++)
 	    ti[j] -= min;
     }
 }
@@ -174,23 +195,19 @@ void kuhn_reduceRows(cell** t, size_t n, size_t m)
  * value is zero [minimal for the row]. Each marking will
  * be on an unique row and an unique column.
  *
- * @param   t  The table in which to perform the reduction
- * @param   marks       The marking matrix
- * @param   colCovered  An array which tells whether a column is covered
- * @param   n  The table's height
- * @param   m  The table's width
+ * @param k The data from kuhn_match
  * @return  The number of covered columns
  */
-size_t kuhn_markZeroes(cell** t, uint8_t **marks, boolean *colCovered, size_t n, size_t m)
+size_t kuhn_markZeroes(struct kuhn_data *k)
 {
     size_t i, j;
     size_t count = 0;
 
-    for (i = 0; i < n; i++)
-        for (j = 0; j < m; j++)
-	    if (!colCovered[j] && t[i][j] == 0) {
-	        marks[i][j] = MARKED;
-		colCovered[j] = TRUE;
+    for (i = 0; i < k->n; i++)
+        for (j = 0; j < k->m; j++)
+	    if (!k->colCovered[j] && k->table[i][j] == 0) {
+	        k->marks[i][j] = MARKED;
+		k->colCovered[j] = TRUE;
                 count++;
                 break;
 	    }
@@ -204,22 +221,19 @@ size_t kuhn_markZeroes(cell** t, uint8_t **marks, boolean *colCovered, size_t n,
  * if each row has a marking which is on a unique column.
  * Find covered columns while at it.
  *
- * @param   marks       The marking matrix
- * @param   colCovered  An array which tells whether a column is covered
- * @param   n           The table's height
- * @param   m           The table's width
+ * @param k The data from kuhn_match
  * @return              Number of rows with a mark
  */
-size_t kuhn_countColumns(uint8_t** marks, boolean* colCovered, size_t n, size_t m)
+size_t kuhn_countColumns(struct kuhn_data *k)
 {
     size_t i, j;
     size_t count = 0;
 
-    memset(colCovered, 0, m);
-    for (i = 0; i < n; i++)
-        for (j = 0; j < m; j++)
-	    if (!colCovered[j] && marks[i][j] == MARKED) {
-	        colCovered[j] = TRUE;
+    memset(k->colCovered, 0, k->m);
+    for (i = 0; i < k->n; i++)
+        for (j = 0; j < k->m; j++)
+	    if (!k->colCovered[j] && k->marks[i][j] == MARKED) {
+	        k->colCovered[j] = TRUE;
                 count++;
 		break;
 	    }
@@ -231,28 +245,25 @@ size_t kuhn_countColumns(uint8_t** marks, boolean* colCovered, size_t n, size_t 
 /**
  * Finds a prime
  *
- * @param   t           The table
- * @param   marks       The marking matrix
- * @param   rowCovered  Row cover array
- * @param   colCovered  Column cover array
- * @param   n           The table's height
- * @param   m           The table's width
+ * @param k The data from kuhn_match
+ * @param primeRow    The row of the found prime
+ * @param primeCol    The column of the found prime
  * @return              The row and column of the found print, <code>NULL</code> will be returned if none can be found
  */
-boolean kuhn_findPrime(cell** t, uint8_t** marks, boolean* rowCovered, boolean* colCovered, size_t* primeRow, size_t* primeCol, size_t n, size_t m)
+boolean kuhn_findPrime(struct kuhn_data *k, size_t* primeRow, size_t* primeCol)
 {
     size_t i, j;
     size_t row, col;
     BitSet zeroes;
 
-    BitSet_init(&zeroes, n * m);
+    BitSet_init(&zeroes, k->n * k->m);
 
-    for (i = 0; i < n; i++)
-	for (j = 0; j < m; j++)
-	    if (!colCovered[j] && t[i][j] == 0)
-		BitSet_set(&zeroes, i * m + j);
+    for (i = 0; i < k->n; i++)
+	for (j = 0; j < k->m; j++)
+	    if (!k->colCovered[j] && k->table[i][j] == 0)
+		BitSet_set(&zeroes, i * k->m + j);
 
-    memset(rowCovered, 0, n);
+    memset(k->rowCovered, 0, k->n);
     for (;;) {
         ssize_t p = BitSet_any(&zeroes);
 	if (p < 0) {
@@ -260,38 +271,38 @@ boolean kuhn_findPrime(cell** t, uint8_t** marks, boolean* rowCovered, boolean* 
 	    return FALSE;
 	}
 	
-	row = (size_t)p / m;
-	col = (size_t)p % m;
+	row = (size_t)p / k->m;
+	col = (size_t)p % k->m;
 	
-	marks[row][col] = PRIME;
+	k->marks[row][col] = PRIME;
 	
-	for (j = 0; j < m; j++)
-	    if (marks[row][j] == MARKED) {
+	for (j = 0; j < k->m; j++)
+	    if (k->marks[row][j] == MARKED) {
 		col = j;
                 break;
 	    }
 	
 	/* No other marks?  We're done.  */
-	if (j == m)
+	if (j == k->m)
             break;
 
 	BitSet_unset(&zeroes, p);
-	rowCovered[row] = TRUE;
-	colCovered[col] = FALSE;
+	k->rowCovered[row] = TRUE;
+	k->colCovered[col] = FALSE;
 	
 	/* Add zeroes to the bitmap for the now-uncovered column.  */
-	for (i = 0; i < n; i++)
-	    if (row != i && t[i][col] == 0) {
-	        if (!rowCovered[i])
-	            BitSet_set(&zeroes, i * m + col);
+	for (i = 0; i < k->n; i++)
+	    if (row != i && k->table[i][col] == 0) {
+	        if (!k->rowCovered[i])
+	            BitSet_set(&zeroes, i * k->m + col);
 	        else
-	            BitSet_unset(&zeroes, i * m + col);
+	            BitSet_unset(&zeroes, i * k->m + col);
 	    }
 	
 	/* Remove zeroes from the bitmap for the now-covered row.  */
-	for (j = 0; j < m; j++)
-	    if (col != j && t[row][j] == 0)
-	        BitSet_unset(&zeroes, row * m + j);
+	for (j = 0; j < k->m; j++)
+	    if (col != j && k->table[row][j] == 0)
+	        BitSet_unset(&zeroes, row * k->m + j);
 	
     }
 
@@ -302,57 +313,52 @@ boolean kuhn_findPrime(cell** t, uint8_t** marks, boolean* rowCovered, boolean* 
 }
 
 
-static inline void kuhn_altMark(uint8_t **marks, ssize_t currRow, ssize_t currCol)
+static inline void kuhn_altMark(struct kuhn_data *k, ssize_t currRow, ssize_t currCol)
 {
-    if (marks[currRow][currCol] == MARKED)
-        marks[currRow][currCol] = UNMARKED;
+    if (k->marks[currRow][currCol] == MARKED)
+        k->marks[currRow][currCol] = UNMARKED;
     else
-        marks[currRow][currCol] = MARKED;
+        k->marks[currRow][currCol] = MARKED;
 }
 
 /**
  * Removes all prime marks and modifies the marking
  *
- * @param  marks      The marking matrix
- * @param  altRow     Marking modification path rows
- * @param  altCol     Marking modification path columns
- * @param  colMarks   Markings in the columns
- * @param  rowPrimes  Primes in the rows
- * @param  prime      The last found prime
- * @param  n          The table's height
- * @param  m          The table's width
+ * @param k The data from kuhn_match
+ * @param  currRow    The row of the last found prime
+ * @param  currCol    The column of the last found prime
  */
-void kuhn_altMarks(uint8_t** marks, ssize_t currRow, ssize_t currCol, ssize_t* colMarks, ssize_t* rowPrimes, size_t n, size_t m)
+void kuhn_altMarks(struct kuhn_data *k, ssize_t currRow, ssize_t currCol)
 {
     size_t index = 0, i, j;
 
-    for (i = 0; i < n; i++)
-        rowPrimes[i] = -1;
-    for (j = 0; j < m; j++)
-        colMarks[j] = -1;
+    for (i = 0; i < k->n; i++)
+        k->rowPrimes[i] = -1;
+    for (j = 0; j < k->m; j++)
+        k->colMarks[j] = -1;
 
-    for (i = 0; i < n; i++)
-        for (j = 0; j < m; j++)
-	    if (marks[i][j] == MARKED)
-	        colMarks[j] = (ssize_t)i;
-	    else if (marks[i][j] == PRIME)
-	        rowPrimes[i] = (ssize_t)j;
+    for (i = 0; i < k->n; i++)
+        for (j = 0; j < k->m; j++)
+	    if (k->marks[i][j] == MARKED)
+	        k->colMarks[j] = (ssize_t)i;
+	    else if (k->marks[i][j] == PRIME)
+	        k->rowPrimes[i] = (ssize_t)j;
 
-    kuhn_altMark(marks, currRow, currCol);
+    kuhn_altMark(k, currRow, currCol);
     for (;;) {
-        currRow = colMarks[currCol];
+        currRow = k->colMarks[currCol];
 	if (currRow < 0)
 	    break;
-        kuhn_altMark(marks, currRow, currCol);
+        kuhn_altMark(k, currRow, currCol);
 	
-	currCol = rowPrimes[currRow];
+	currCol = k->rowPrimes[currRow];
         assert(currCol >= 0);
-        kuhn_altMark(marks, currRow, currCol);
+        kuhn_altMark(k, currRow, currCol);
     }
 
-    for (i = 0; i < n; i++) {
-        uint8_t *marksi = marks[i];
-        for (j = 0; j < m; j++)
+    for (i = 0; i < k->n; i++) {
+        uint8_t *marksi = k->marks[i];
+        for (j = 0; j < k->m; j++)
 	    if (marksi[j] == PRIME)
 	        marksi[j] = UNMARKED;
     }
@@ -364,32 +370,28 @@ void kuhn_altMarks(uint8_t** marks, ssize_t currRow, ssize_t currCol, ssize_t* c
  * the the minimum value in the table is added, subtracted or
  * neither from the cells.
  *
- * @param  t           The table to manipulate
- * @param  rowCovered  Array that tell whether the rows are covered
- * @param  colCovered  Array that tell whether the columns are covered
- * @param  n           The table's height
- * @param  m           The table's width
+ * @param k The data from kuhn_match
  */
-void kuhn_addAndSubtract(cell** t, boolean* rowCovered, boolean* colCovered, size_t n, size_t m)
+void kuhn_addAndSubtract(struct kuhn_data *k)
 {
     size_t i, j;
     cell min = CELL_MAX;
-    for (i = 0; i < n; i++)
-        if (!rowCovered[i])
-	    for (j = 0; j < m; j++)
-	        if (!colCovered[j] && min > t[i][j])
-		    min = t[i][j];
+    for (i = 0; i < k->n; i++)
+        if (!k->rowCovered[i])
+	    for (j = 0; j < k->m; j++)
+	        if (!k->colCovered[j] && min > k->table[i][j])
+		    min = k->table[i][j];
 
-    for (i = 0; i < n; i++) {
-	if (rowCovered[i]) {
-            for (j = 0; j < m; j++) {
-	        if (colCovered[j])
-	            t[i][j] += min;
+    for (i = 0; i < k->n; i++) {
+	if (k->rowCovered[i]) {
+            for (j = 0; j < k->m; j++) {
+	        if (k->colCovered[j])
+	            k->table[i][j] += min;
             }
 	} else {
-            for (j = 0; j < m; j++) {
-	        if (!colCovered[j])
-	            t[i][j] -= min;
+            for (j = 0; j < k->m; j++) {
+	        if (!k->colCovered[j])
+	            k->table[i][j] -= min;
             }
         }
     }
@@ -399,20 +401,18 @@ void kuhn_addAndSubtract(cell** t, boolean* rowCovered, boolean* colCovered, siz
 /**
  * Creates a list of the assignment cells
  *
- * @param   marks  Matrix markings
- * @param   n      The table's height
- * @param   m      The table's width
+ * @param k The data from kuhn_match
  * @return         The assignment, an array of row–coloumn pairs
  */
-ssize_t** kuhn_assign(uint8_t** marks, size_t n, size_t m)
+ssize_t** kuhn_assign(struct kuhn_data *k)
 {
-    ssize_t** assignment = malloc(n * sizeof(ssize_t*));
+    ssize_t** assignment = malloc(k->n * sizeof(ssize_t*));
 
     size_t i, j;
-    for (i = 0; i < n; i++) {
+    for (i = 0; i < k->n; i++) {
         assignment[i] = malloc(2 * sizeof(ssize_t));
-        for (j = 0; j < m; j++)
-	    if (marks[i][j] == MARKED) {
+        for (j = 0; j < k->m; j++)
+	    if (k->marks[i][j] == MARKED) {
 		assignment[i][0] = (ssize_t)i;
 		assignment[i][1] = (ssize_t)j;
 	    }
