@@ -239,8 +239,8 @@ ssize_t** kuhn_match(cell** table, size_t n, size_t m)
     kuhn_reduceRows(table, n, m);
     byte** marks = kuhn_mark(table, n, m);
     
-    boolean* rowCovered = calloc(n, sizeof(boolean));
-    boolean* colCovered = calloc(m, sizeof(boolean));
+    boolean* rowCovered = malloc(n * sizeof(boolean));
+    boolean* colCovered = malloc(m * sizeof(boolean));
     
     size_t* altRow = malloc(n * m * sizeof(ssize_t));
     size_t* altCol = malloc(n * m * sizeof(ssize_t));
@@ -250,24 +250,13 @@ ssize_t** kuhn_match(cell** table, size_t n, size_t m)
     
     size_t* prime;
     
-    for (;;)
-    {
-	if (kuhn_isDone(marks, colCovered, n, m))
-	    break;
-	
-        for (;;)
-	{
-	    prime = kuhn_findPrime(table, marks, rowCovered, colCovered, n, m);
-	    if (prime)
-	    {
-		kuhn_altMarks(marks, altRow, altCol, colMarks, rowPrimes, prime, n, m);
-                memset(rowCovered, 0, n);
-                memset(colCovered, 0, m);
-		free(prime);
-		break;
-	    }
+    while (!kuhn_isDone(marks, colCovered, n, m)) {
+        memset(rowCovered, 0, n);
+        while (!(prime = kuhn_findPrime(table, marks, rowCovered, colCovered, n, m)))
 	    kuhn_addAndSubtract(table, rowCovered, colCovered, n, m);
-	}
+
+	kuhn_altMarks(marks, altRow, altCol, colMarks, rowPrimes, prime, n, m);
+	free(prime);
     }
     
     free(rowCovered);
@@ -365,6 +354,7 @@ byte** kuhn_mark(cell** t, size_t n, size_t m)
 /**
  * Determines whether the marking is complete, that is
  * if each row has a marking which is on a unique column.
+ * Find covered columns while at it.
  *
  * @param   marks       The marking matrix
  * @param   colCovered  An array which tells whether a column is covered
@@ -375,18 +365,17 @@ byte** kuhn_mark(cell** t, size_t n, size_t m)
 boolean kuhn_isDone(byte** marks, boolean* colCovered, size_t n, size_t m)
 {
     size_t i, j;
+    size_t count = 0;
+
+    memset(colCovered, 0, m);
     for (j = 0; j < m; j++)
         for (i = 0; i < n; i++)
 	    if (marks[i][j] == MARKED)
 	    {
 	        colCovered[j] = TRUE;
+                count++;
 		break;
 	    }
-    
-    size_t count = 0;
-    for (j = 0; j < m; j++)
-        if (colCovered[j])
-	    count++;
     
     return count == n;
 }
