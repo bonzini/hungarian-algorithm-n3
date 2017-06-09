@@ -413,56 +413,54 @@ size_t* kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* col
 	row = (size_t)p / m;
 	col = (size_t)p % m;
 	
-	*(*(marks + row) + col) = PRIME;
+	marks[row][col] = PRIME;
 	
 	markInRow = FALSE;
 	for (j = 0; j < m; j++)
-	    if (*(*(marks + row) + j) == MARKED)
+	    if (marks[row][j] == MARKED)
 	    {
 		markInRow = TRUE;
 		col = j;
 	    }
 	
-	if (markInRow)
-	{
-	    *(rowCovered + row) = TRUE;
-	    *(colCovered + col) = FALSE;
-	    
-	    for (i = 0; i < n; i++)
-	        if ((*(t[i] + col) == 0) && (row != i))
-		{
-		    if ((!rowCovered[i]) && (!*(colCovered + col)))
-		        BitSet_set(zeroes, i * m + col);
-		    else
-		        BitSet_unset(zeroes, i * m + col);
-		}
-	    
-	    for (j = 0; j < m; j++)
-	        if ((*(*(t + row) + j) == 0) && (col != j))
-		{
-		    if ((!*(rowCovered + row)) && (!colCovered[j]))
-		        BitSet_set(zeroes, row * m + j);
-		    else
-		        BitSet_unset(zeroes, row * m + j);
-		}
-	    
-	    if ((!*(rowCovered + row)) && (!*(colCovered + col)))
-	        BitSet_set(zeroes, row * m + col);
-	    else
-	        BitSet_unset(zeroes, row * m + col);
-	}
+	if (!markInRow)
+            break;
+
+	rowCovered[row] = TRUE;
+	colCovered[col] = FALSE;
+	
+	for (i = 0; i < n; i++)
+	    if (row != i && t[i][col] == 0)
+	    {
+	        if (!rowCovered[i] && !colCovered[col])
+	            BitSet_set(zeroes, i * m + col);
+	        else
+	            BitSet_unset(zeroes, i * m + col);
+	    }
+	
+	for (j = 0; j < m; j++)
+	    if (col != j && t[row][j] == 0)
+	    {
+	        if (!rowCovered[row] && !colCovered[j])
+	            BitSet_set(zeroes, row * m + j);
+	        else
+	            BitSet_unset(zeroes, row * m + j);
+	    }
+	
+	if (!rowCovered[row] && !colCovered[col])
+	    BitSet_set(zeroes, row * m + col);
 	else
-	{
-	    size_t* rc = malloc(2 * sizeof(size_t));
-	    rc[0] = row;
-	    rc[1] = col;
-	    free(zeroes.limbs);
-	    free(zeroes.first);
-	    free(zeroes.next);
-	    free(zeroes.prev);
-	    return rc;
-	}
+	    BitSet_unset(zeroes, row * m + col);
     }
+
+    size_t* rc = malloc(2 * sizeof(size_t));
+    rc[0] = row;
+    rc[1] = col;
+    free(zeroes.limbs);
+    free(zeroes.first);
+    free(zeroes.next);
+    free(zeroes.prev);
+    return rc;
 }
 
 
