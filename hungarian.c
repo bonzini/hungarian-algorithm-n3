@@ -498,12 +498,17 @@ void kuhn_addAndSubtract(cell** t, boolean* rowCovered, boolean* colCovered, siz
 		    min = t[i][j];
 
     for (i = 0; i < n; i++) {
-        for (j = 0; j < m; j++) {
-	    if (rowCovered[i])
-	        t[i][j] += min;
-	    if (!colCovered[j])
-	        t[i][j] -= min;
-	}
+	if (rowCovered[i]) {
+            for (j = 0; j < m; j++) {
+	        if (colCovered[j])
+	            t[i][j] += min;
+            }
+	} else {
+            for (j = 0; j < m; j++) {
+	        if (!colCovered[j])
+	            t[i][j] -= min;
+            }
+        }
     }
 }
 
