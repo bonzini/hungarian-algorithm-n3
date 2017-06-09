@@ -379,6 +379,7 @@ size_t kuhn_markColumns(byte** marks, boolean* colCovered, size_t n, size_t m)
 boolean kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* colCovered, size_t* primeRow, size_t* primeCol, size_t n, size_t m)
 {
     size_t i, j;
+    size_t row, col;
     BitSet zeroes;
    
     BitSet_init(&zeroes, n * m);
@@ -388,14 +389,10 @@ boolean kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* col
 	    if (!colCovered[j] && t[i][j] == 0)
 		BitSet_set(&zeroes, i * m + j);
 
-    ssize_t p;
-    size_t row, col;
-    boolean markInRow;
-    
     memset(rowCovered, 0, n);
     for (;;)
     {
-        p = BitSet_any(&zeroes);
+        ssize_t p = BitSet_any(&zeroes);
 	if (p < 0)
         {
 	    BitSet_free(&zeroes);
@@ -407,15 +404,13 @@ boolean kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* col
 	
 	marks[row][col] = PRIME;
 	
-	markInRow = FALSE;
 	for (j = 0; j < m; j++)
-	    if (marks[row][j] == MARKED)
-	    {
-		markInRow = TRUE;
+	    if (marks[row][j] == MARKED) {
 		col = j;
+                break;
 	    }
 	
-	if (!markInRow)
+	if (j == m)
             break;
 
 	rowCovered[row] = TRUE;
