@@ -413,13 +413,14 @@ boolean kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* col
 	if (j == m)
             break;
 
+	BitSet_unset(&zeroes, p);
 	rowCovered[row] = TRUE;
 	colCovered[col] = FALSE;
 	
 	for (i = 0; i < n; i++)
 	    if (row != i && t[i][col] == 0)
 	    {
-	        if (!rowCovered[i] && !colCovered[col])
+	        if (!rowCovered[i])
 	            BitSet_set(&zeroes, i * m + col);
 	        else
 	            BitSet_unset(&zeroes, i * m + col);
@@ -427,17 +428,8 @@ boolean kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* col
 	
 	for (j = 0; j < m; j++)
 	    if (col != j && t[row][j] == 0)
-	    {
-	        if (!rowCovered[row] && !colCovered[j])
-	            BitSet_set(&zeroes, row * m + j);
-	        else
-	            BitSet_unset(&zeroes, row * m + j);
-	    }
+	        BitSet_unset(&zeroes, row * m + j);
 	
-	if (!rowCovered[row] && !colCovered[col])
-	    BitSet_set(&zeroes, row * m + col);
-	else
-	    BitSet_unset(&zeroes, row * m + col);
     }
 
     *primeRow = row;
