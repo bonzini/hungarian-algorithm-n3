@@ -445,8 +445,8 @@ void kuhn_altMarks(byte** marks, ssize_t currRow, ssize_t currCol, ssize_t* colM
     
     for (i = 0; i < n; i++)
         rowPrimes[i] = -1;
-    for (i = 0; i < m; i++)
-        colMarks[i] = -1;
+    for (j = 0; j < m; j++)
+        colMarks[j] = -1;
     
     for (i = 0; i < n; i++)
         for (j = 0; j < m; j++)
