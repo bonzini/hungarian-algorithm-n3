@@ -339,9 +339,9 @@ size_t kuhn_markColumns(byte** marks, boolean* colCovered, size_t n, size_t m)
     size_t count = 0;
 
     memset(colCovered, 0, m);
-    for (j = 0; j < m; j++)
-        for (i = 0; i < n; i++)
-	    if (marks[i][j] == MARKED) {
+    for (i = 0; i < n; i++)
+        for (j = 0; j < m; j++)
+	    if (!colCovered[j] && marks[i][j] == MARKED) {
 	        colCovered[j] = TRUE;
                 count++;
 		break;
