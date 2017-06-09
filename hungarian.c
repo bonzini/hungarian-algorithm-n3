@@ -94,8 +94,8 @@ typedef struct
 
 ssize_t** kuhn_match(cell** table, size_t n, size_t m);
 static void kuhn_reduceRows(cell** t, size_t n, size_t m);
-static byte** kuhn_mark(cell** t, boolean* colCovered, size_t n, size_t m);
-static boolean kuhn_isDone(byte** marks, boolean* colCovered, size_t n, size_t m);
+static void kuhn_mark(cell** t, byte** marks, boolean* colCovered, size_t n, size_t m);
+static size_t kuhn_markColumns(byte** marks, boolean* colCovered, size_t n, size_t m);
 static boolean kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* colCovered, size_t* primeRow, size_t* primeCol, size_t n, size_t m);
 static void kuhn_altMarks(byte** marks, size_t* altRow, size_t* altCol, ssize_t* colMarks, ssize_t* rowPrimes, size_t n, size_t m);
 static void kuhn_addAndSubtract(cell** t, boolean* rowCovered, boolean* colCovered, size_t n, size_t m);
@@ -246,9 +246,14 @@ ssize_t** kuhn_match(cell** table, size_t n, size_t m)
     boolean* rowCovered = calloc(n, sizeof(boolean));
     boolean* colCovered = calloc(m, sizeof(boolean));
     
-    byte **marks = kuhn_mark(table, colCovered, n, m);
+    byte** marks = malloc(n * sizeof(byte*));
+    for (i = 0; i < n; i++)
+        marks[i] = calloc(m, sizeof(byte));
+    
+    kuhn_reduceRows(table, n, m);
+    kuhn_mark(table, marks, colCovered, n, m);
 
-    while (!kuhn_isDone(marks, colCovered, n, m)) {
+    while (kuhn_markColumns(marks, colCovered, n, m) < n) {
         while (!kuhn_findPrime(table, marks, rowCovered, colCovered, altRow, altCol, n, m))
 	    kuhn_addAndSubtract(table, rowCovered, colCovered, n, m);
 
@@ -312,19 +317,9 @@ void kuhn_reduceRows(cell** t, size_t n, size_t m)
  * @param   m  The table's width
  * @return     A matrix of markings as described in the summary
  */
-byte** kuhn_mark(cell** t, boolean *colCovered, size_t n, size_t m)
+void kuhn_mark(cell** t, byte **marks, boolean *colCovered, size_t n, size_t m)
 {
     size_t i, j;
-    byte** marks = malloc(n * sizeof(byte*));
-    for (i = 0; i < n; i++)
-    {
-        byte *marksi = marks[i] = malloc(m * sizeof(byte));
-        for (j = 0; j < m; j++)
- 	    marksi[j] = UNMARKED;
-    }
-    
-    kuhn_reduceRows(t, n, m);
-
     for (i = 0; i < n; i++)
         for (j = 0; j < m; j++)
 	    if (!colCovered[j] && t[i][j] == 0) {
@@ -332,8 +327,6 @@ byte** kuhn_mark(cell** t, boolean *colCovered, size_t n, size_t m)
 		colCovered[j] = TRUE;
                 break;
 	    }
-    
-    return marks;
 }
 
 
@@ -346,9 +339,9 @@ byte** kuhn_mark(cell** t, boolean *colCovered, size_t n, size_t m)
  * @param   colCovered  An array which tells whether a column is covered
  * @param   n           The table's height
  * @param   m           The table's width
- * @return              Whether the marking is complete
+ * @return              Number of rows with a mark
  */
-boolean kuhn_isDone(byte** marks, boolean* colCovered, size_t n, size_t m)
+size_t kuhn_markColumns(byte** marks, boolean* colCovered, size_t n, size_t m)
 {
     size_t i, j;
     size_t count = 0;
@@ -363,7 +356,7 @@ boolean kuhn_isDone(byte** marks, boolean* colCovered, size_t n, size_t m)
 		break;
 	    }
     
-    return count == n;
+    return count;
 }
 
 
