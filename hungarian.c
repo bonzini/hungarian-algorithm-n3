@@ -95,7 +95,7 @@ typedef struct
 ssize_t** kuhn_match(cell** table, size_t n, size_t m);
 static void kuhn_reduceRows(cell** t, size_t n, size_t m);
 static byte** kuhn_mark(cell** t, boolean* rowCovered, boolean* colCovered, size_t n, size_t m);
-static boolean kuhn_isDone(byte** marks, boolean* colCovered, size_t n, size_t m);
+static boolean kuhn_isDone(byte** marks, boolean *rowCovered, boolean* colCovered, size_t n, size_t m);
 static size_t* kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* colCovered, size_t n, size_t m);
 static void kuhn_altMarks(byte** marks, size_t* altRow, size_t* altCol, ssize_t* colMarks, ssize_t* rowPrimes, size_t* prime, size_t n, size_t m);
 static void kuhn_addAndSubtract(cell** t, boolean* rowCovered, boolean* colCovered, size_t n, size_t m);
@@ -251,8 +251,7 @@ ssize_t** kuhn_match(cell** table, size_t n, size_t m)
 
     size_t* prime;
     
-    while (!kuhn_isDone(marks, colCovered, n, m)) {
-        memset(rowCovered, 0, n);
+    while (!kuhn_isDone(marks, rowCovered, colCovered, n, m)) {
         while (!(prime = kuhn_findPrime(table, marks, rowCovered, colCovered, n, m)))
 	    kuhn_addAndSubtract(table, rowCovered, colCovered, n, m);
 
@@ -354,11 +353,12 @@ byte** kuhn_mark(cell** t, boolean *rowCovered, boolean *colCovered, size_t n, s
  * @param   m           The table's width
  * @return              Whether the marking is complete
  */
-boolean kuhn_isDone(byte** marks, boolean* colCovered, size_t n, size_t m)
+boolean kuhn_isDone(byte** marks, boolean *rowCovered, boolean* colCovered, size_t n, size_t m)
 {
     size_t i, j;
     size_t count = 0;
 
+    memset(rowCovered, 0, n);
     memset(colCovered, 0, m);
     for (j = 0; j < m; j++)
         for (i = 0; i < n; i++)
