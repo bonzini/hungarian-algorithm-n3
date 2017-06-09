@@ -10,6 +10,8 @@
  * and/or modify it under the terms of the Do What The Fuck You Want
  * To Public License, Version 2, as published by Sam Hocevar. See
  * http://sam.zoy.org/wtfpl/COPYING for more details.
+ *
+ * Cleaned up version of https://raw.githubusercontent.com/maandree/hungarian-algorithm-n3/master/hungarian.c
  */
 
 
@@ -31,37 +33,14 @@
 #define CELL_STR  "%li"
 
 typedef uintptr_t llong;
-typedef int_fast8_t byte;
 typedef unsigned char boolean;
-#define TRUE     1
-#define FALSE    0
-
-
-
-#ifdef DEBUG
-#  define debug(X) fprintf(stderr, "\033[31m%s\033[m\n", X)
-#else
-#  define debug(X) 
-#endif
-
-
+enum { FALSE, TRUE };
 
 
 /**
- * Cell marking:  none
+ * Cell markings
  */
-#define UNMARKED  0L
-
-/**
- * Cell marking:  marked
- */
-#define MARKED    1L
-
-/**
- * Cell marking:  prime
- */
-#define PRIME     2L
-
+enum { UNMARKED, MARKED, PRIME };
 
 
 /**
@@ -95,12 +74,12 @@ typedef struct
 
 ssize_t** kuhn_match(cell** table, size_t n, size_t m);
 static void kuhn_reduceRows(cell** t, size_t n, size_t m);
-static size_t kuhn_markZeroes(cell** t, byte** marks, boolean* colCovered, size_t n, size_t m);
-static size_t kuhn_markColumns(byte** marks, boolean* colCovered, size_t n, size_t m);
-static boolean kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* colCovered, size_t* primeRow, size_t* primeCol, size_t n, size_t m);
-static void kuhn_altMarks(byte** marks, ssize_t currRow, ssize_t currCol, ssize_t* colMarks, ssize_t* rowPrimes, size_t n, size_t m);
+static size_t kuhn_markZeroes(cell** t, uint8_t** marks, boolean* colCovered, size_t n, size_t m);
+static size_t kuhn_countColumns(uint8_t** marks, boolean* colCovered, size_t n, size_t m);
+static boolean kuhn_findPrime(cell** t, uint8_t** marks, boolean* rowCovered, boolean* colCovered, size_t* primeRow, size_t* primeCol, size_t n, size_t m);
+static void kuhn_altMarks(uint8_t** marks, ssize_t currRow, ssize_t currCol, ssize_t* colMarks, ssize_t* rowPrimes, size_t n, size_t m);
 static void kuhn_addAndSubtract(cell** t, boolean* rowCovered, boolean* colCovered, size_t n, size_t m);
-static ssize_t** kuhn_assign(byte** marks, size_t n, size_t m);
+static ssize_t** kuhn_assign(uint8_t** marks, size_t n, size_t m);
 
 static void BitSet_init(BitSet *this, size_t size);
 static void BitSet_free(BitSet *this);
@@ -232,9 +211,9 @@ ssize_t** kuhn_match(cell** table, size_t n, size_t m)
     boolean* rowCovered = calloc(n, sizeof(boolean));
     boolean* colCovered = calloc(m, sizeof(boolean));
     
-    byte** marks = malloc(n * sizeof(byte*));
+    uint8_t** marks = malloc(n * sizeof(uint8_t*));
     for (i = 0; i < n; i++)
-        marks[i] = calloc(m, sizeof(byte));
+        marks[i] = calloc(m, sizeof(uint8_t));
     
     kuhn_reduceRows(table, n, m);
     if (kuhn_markZeroes(table, marks, colCovered, n, m) < n) {
@@ -244,7 +223,7 @@ ssize_t** kuhn_match(cell** table, size_t n, size_t m)
 	        kuhn_addAndSubtract(table, rowCovered, colCovered, n, m);
 
 	    kuhn_altMarks(marks, primeRow, primeCol, colMarks, rowPrimes, n, m);
-        } while (kuhn_markColumns(marks, colCovered, n, m) < n);
+        } while (kuhn_countColumns(marks, colCovered, n, m) < n);
     }
     
     free(rowCovered);
@@ -301,7 +280,7 @@ void kuhn_reduceRows(cell** t, size_t n, size_t m)
  * @param   m  The table's width
  * @return  The number of covered columns
  */
-size_t kuhn_markZeroes(cell** t, byte **marks, boolean *colCovered, size_t n, size_t m)
+size_t kuhn_markZeroes(cell** t, uint8_t **marks, boolean *colCovered, size_t n, size_t m)
 {
     size_t i, j;
     size_t count = 0;
@@ -330,7 +309,7 @@ size_t kuhn_markZeroes(cell** t, byte **marks, boolean *colCovered, size_t n, si
  * @param   m           The table's width
  * @return              Number of rows with a mark
  */
-size_t kuhn_markColumns(byte** marks, boolean* colCovered, size_t n, size_t m)
+size_t kuhn_countColumns(uint8_t** marks, boolean* colCovered, size_t n, size_t m)
 {
     size_t i, j;
     size_t count = 0;
@@ -359,7 +338,7 @@ size_t kuhn_markColumns(byte** marks, boolean* colCovered, size_t n, size_t m)
  * @param   m           The table's width
  * @return              The row and column of the found print, <code>NULL</code> will be returned if none can be found
  */
-boolean kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* colCovered, size_t* primeRow, size_t* primeCol, size_t n, size_t m)
+boolean kuhn_findPrime(cell** t, uint8_t** marks, boolean* rowCovered, boolean* colCovered, size_t* primeRow, size_t* primeCol, size_t n, size_t m)
 {
     size_t i, j;
     size_t row, col;
@@ -419,7 +398,7 @@ boolean kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* col
 }
 
 
-static inline void kuhn_altMark(byte **marks, ssize_t currRow, ssize_t currCol)
+static inline void kuhn_altMark(uint8_t **marks, ssize_t currRow, ssize_t currCol)
 {
     if (marks[currRow][currCol] == MARKED)
         marks[currRow][currCol] = UNMARKED;
@@ -439,7 +418,7 @@ static inline void kuhn_altMark(byte **marks, ssize_t currRow, ssize_t currCol)
  * @param  n          The table's height
  * @param  m          The table's width
  */
-void kuhn_altMarks(byte** marks, ssize_t currRow, ssize_t currCol, ssize_t* colMarks, ssize_t* rowPrimes, size_t n, size_t m)
+void kuhn_altMarks(uint8_t** marks, ssize_t currRow, ssize_t currCol, ssize_t* colMarks, ssize_t* rowPrimes, size_t n, size_t m)
 {
     size_t index = 0, i, j;
     
@@ -468,7 +447,7 @@ void kuhn_altMarks(byte** marks, ssize_t currRow, ssize_t currCol, ssize_t* colM
     }
     
     for (i = 0; i < n; i++) {
-        byte *marksi = marks[i];
+        uint8_t *marksi = marks[i];
         for (j = 0; j < m; j++)
 	    if (marksi[j] == PRIME)
 	        marksi[j] = UNMARKED;
@@ -521,7 +500,7 @@ void kuhn_addAndSubtract(cell** t, boolean* rowCovered, boolean* colCovered, siz
  * @param   m      The table's width
  * @return         The assignment, an array of row–coloumn pairs
  */
-ssize_t** kuhn_assign(byte** marks, size_t n, size_t m)
+ssize_t** kuhn_assign(uint8_t** marks, size_t n, size_t m)
 {
     ssize_t** assignment = malloc(n * sizeof(ssize_t*));
     
