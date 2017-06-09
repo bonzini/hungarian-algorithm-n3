@@ -467,9 +467,8 @@ void kuhn_altMarks(byte** marks, ssize_t currRow, ssize_t currCol, ssize_t* colM
         kuhn_altMark(marks, currRow, currCol);
     }
     
-    byte* marksi;
     for (i = 0; i < n; i++) {
-        marksi = marks[i];
+        byte *marksi = marks[i];
         for (j = 0; j < m; j++)
 	    if (marksi[j] == PRIME)
 	        marksi[j] = UNMARKED;
