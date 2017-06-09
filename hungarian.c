@@ -390,11 +390,10 @@ size_t* kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* col
     BitSet zeroes = new_BitSet(n * m);
     
     for (i = 0; i < n; i++)
-        if (!rowCovered[i])
-	    for (j = 0; j < m; j++)
-	        if ((!colCovered[j]) && (t[i][j] == 0))
-		  BitSet_set(zeroes, i * m + j);
-    
+	for (j = 0; j < m; j++)
+	    if (!colCovered[j] && t[i][j] == 0)
+		BitSet_set(zeroes, i * m + j);
+
     ssize_t p;
     size_t row, col;
     boolean markInRow;
