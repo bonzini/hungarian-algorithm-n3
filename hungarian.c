@@ -74,19 +74,19 @@ typedef struct
     llong* limbs;
     
     /**
-     * Singleton array with the index of the first non-zero limb
+     * Index of the first non-zero limb
      */
-    size_t* first;
+    ssize_t first;
     
     /**
      * Array the the index of the previous non-zero limb for each limb
      */
-    size_t* prev;
+    ssize_t* prev;
     
     /**
      * Array the the index of the next non-zero limb for each limb
      */
-    size_t* next;
+    ssize_t* next;
     
 } BitSet;
 
@@ -101,10 +101,11 @@ static void kuhn_altMarks(byte** marks, size_t* altRow, size_t* altCol, ssize_t*
 static void kuhn_addAndSubtract(cell** t, boolean* rowCovered, boolean* colCovered, size_t n, size_t m);
 static ssize_t** kuhn_assign(byte** marks, size_t n, size_t m);
 
-static BitSet new_BitSet(size_t size);
-static void BitSet_set(BitSet this, size_t i);
-static void BitSet_unset(BitSet this, size_t i);
-static ssize_t BitSet_any(BitSet this) __attribute__((pure));
+static void BitSet_init(BitSet *this, size_t size);
+static void BitSet_free(BitSet *this);
+static void BitSet_set(BitSet *this, size_t i);
+static void BitSet_unset(BitSet *this, size_t i);
+static ssize_t BitSet_any(BitSet *this) __attribute__((pure));
 
 static size_t lb(llong x) __attribute__((const));
 
@@ -383,12 +384,14 @@ boolean kuhn_isDone(byte** marks, boolean* colCovered, size_t n, size_t m)
 size_t* kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* colCovered, size_t n, size_t m)
 {
     size_t i, j;
-    BitSet zeroes = new_BitSet(n * m);
+    BitSet zeroes;
+   
+    BitSet_init(&zeroes, n * m);
     
     for (i = 0; i < n; i++)
 	for (j = 0; j < m; j++)
 	    if (!colCovered[j] && t[i][j] == 0)
-		BitSet_set(zeroes, i * m + j);
+		BitSet_set(&zeroes, i * m + j);
 
     ssize_t p;
     size_t row, col;
@@ -397,13 +400,10 @@ size_t* kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* col
     memset(rowCovered, 0, n);
     for (;;)
     {
-        p = BitSet_any(zeroes);
+        p = BitSet_any(&zeroes);
 	if (p < 0)
         {
-	    free(zeroes.limbs);
-	    free(zeroes.first);
-	    free(zeroes.next);
-	    free(zeroes.prev);
+	    BitSet_free(&zeroes);
 	    return NULL;
 	}
 	
@@ -430,33 +430,30 @@ size_t* kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* col
 	    if (row != i && t[i][col] == 0)
 	    {
 	        if (!rowCovered[i] && !colCovered[col])
-	            BitSet_set(zeroes, i * m + col);
+	            BitSet_set(&zeroes, i * m + col);
 	        else
-	            BitSet_unset(zeroes, i * m + col);
+	            BitSet_unset(&zeroes, i * m + col);
 	    }
 	
 	for (j = 0; j < m; j++)
 	    if (col != j && t[row][j] == 0)
 	    {
 	        if (!rowCovered[row] && !colCovered[j])
-	            BitSet_set(zeroes, row * m + j);
+	            BitSet_set(&zeroes, row * m + j);
 	        else
-	            BitSet_unset(zeroes, row * m + j);
+	            BitSet_unset(&zeroes, row * m + j);
 	    }
 	
 	if (!rowCovered[row] && !colCovered[col])
-	    BitSet_set(zeroes, row * m + col);
+	    BitSet_set(&zeroes, row * m + col);
 	else
-	    BitSet_unset(zeroes, row * m + col);
+	    BitSet_unset(&zeroes, row * m + col);
     }
 
     size_t* rc = malloc(2 * sizeof(size_t));
     rc[0] = row;
     rc[1] = col;
-    free(zeroes.limbs);
-    free(zeroes.first);
-    free(zeroes.next);
-    free(zeroes.prev);
+    BitSet_free(&zeroes);
     return rc;
 }
 
@@ -595,28 +592,23 @@ ssize_t** kuhn_assign(byte** marks, size_t n, size_t m)
  * @param   size  The (fixed) number of bits to bit set should contain
  * @return        The a unique BitSet instance with the specified size
  */
-BitSet new_BitSet(size_t size)
+void BitSet_init(BitSet *this, size_t size)
 {
-    BitSet this;
-    
     size_t c = size >> 6L;
     if (size & 63L)
         c++;
     
-    this.limbs = malloc(c * sizeof(llong));
-    this.prev = malloc((c + 1) * sizeof(size_t));
-    this.next = malloc((c + 1) * sizeof(size_t));
-    *(this.first = malloc(sizeof(size_t))) = 0;
-    
-    size_t i;
-    for (i = 0; i < c; i++)
-    {
-        *(this.limbs + i) = 0LL;
-        *(this.prev + i) = *(this.next + i) = 0L;
-    }
-    *(this.prev + c) = *(this.next + c) = 0L;
-    
-    return this;
+    this->limbs = calloc(c, sizeof(llong));
+    this->prev = calloc(c, sizeof(size_t));
+    this->next = calloc(c, sizeof(size_t));
+    this->first = -1;
+}
+
+void BitSet_free(BitSet *this)
+{
+    free(this->limbs);
+    free(this->prev);
+    free(this->next);
 }
 
 /**
@@ -625,20 +617,20 @@ BitSet new_BitSet(size_t size)
  * @param  this  The bit set
  * @param  i     The index of the bit to turn on
  */
-void BitSet_set(BitSet this, size_t i)
+void BitSet_set(BitSet *this, size_t i)
 {
     size_t j = i >> 6L;
-    llong old = *(this.limbs + j);
+    llong old = this->limbs[j];
     
-    *(this.limbs + j) |= 1LL << (llong)(i & 63L);
+    this->limbs[j] |= 1LL << (llong)(i & 63L);
     
-    if ((!*(this.limbs + j)) ^ (!old))
+    if (!old)
     {
-        j++;
-	*(this.prev + *(this.first)) = j;
-	*(this.prev + j) = 0;
-	*(this.next + j) = *(this.first);
-	*(this.first) = j;
+        if (this->first != -1)
+	    this->prev[this->first] = j;
+	this->prev[j] = -1;
+	this->next[j] = this->first;
+	this->first = j;
     }
 }
 
@@ -648,22 +640,26 @@ void BitSet_set(BitSet this, size_t i)
  * @param  this  The bit set
  * @param  i     The index of the bit to turn off
  */
-void BitSet_unset(BitSet this, size_t i)
+void BitSet_unset(BitSet *this, size_t i)
 {
     size_t j = i >> 6L;
-    llong old = *(this.limbs + j);
+    llong old = this->limbs[j];
     
-    *(this.limbs + j) &= ~(1LL << (llong)(i & 63L));
+    if (!old)
+        return;
+
+    this->limbs[j] &= ~(1LL << (llong)(i & 63L));
     
-    if ((!*(this.limbs + j)) ^ (!old))
+    if (!this->limbs[j])
     {
-        j++;
-	size_t p = *(this.prev + j);
-	size_t n = *(this.next + j);
-	*(this.prev + n) = p;
-	*(this.next + p) = n;
-	if (*(this.first) == j)
-	    *(this.first) = n;
+	size_t p = this->prev[j];
+	size_t n = this->next[j];
+        if (n != -1)
+	    this->prev[n] = p;
+        if (p == -1)
+	    this->first = n;
+        else
+	    this->next[p] = n;
     }
 }
 
@@ -673,13 +669,13 @@ void BitSet_unset(BitSet this, size_t i)
  * @param   this  The bit set
  * @return        The index of any set bit
  */
-ssize_t BitSet_any(BitSet this)
+ssize_t BitSet_any(BitSet *this)
 {
-    if (*(this.first) == 0L)
+    ssize_t i = this->first;
+    if (i == -1)
         return -1;
     
-    size_t i = *(this.first) - 1;
-    return (ssize_t)(lb(*(this.limbs + i) & -*(this.limbs + i)) + (i << 6L));
+    return (ssize_t)(lb(this->limbs[i] & -this->limbs[i]) + (i << 6L));
 }
 
 
