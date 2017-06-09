@@ -96,8 +96,8 @@ ssize_t** kuhn_match(cell** table, size_t n, size_t m);
 static void kuhn_reduceRows(cell** t, size_t n, size_t m);
 static byte** kuhn_mark(cell** t, boolean* colCovered, size_t n, size_t m);
 static boolean kuhn_isDone(byte** marks, boolean* colCovered, size_t n, size_t m);
-static size_t* kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* colCovered, size_t n, size_t m);
-static void kuhn_altMarks(byte** marks, size_t* altRow, size_t* altCol, ssize_t* colMarks, ssize_t* rowPrimes, size_t* prime, size_t n, size_t m);
+static boolean kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* colCovered, size_t* primeRow, size_t* primeCol, size_t n, size_t m);
+static void kuhn_altMarks(byte** marks, size_t* altRow, size_t* altCol, ssize_t* colMarks, ssize_t* rowPrimes, size_t n, size_t m);
 static void kuhn_addAndSubtract(cell** t, boolean* rowCovered, boolean* colCovered, size_t n, size_t m);
 static ssize_t** kuhn_assign(byte** marks, size_t n, size_t m);
 
@@ -248,14 +248,11 @@ ssize_t** kuhn_match(cell** table, size_t n, size_t m)
     
     byte **marks = kuhn_mark(table, colCovered, n, m);
 
-    size_t* prime;
-    
     while (!kuhn_isDone(marks, colCovered, n, m)) {
-        while (!(prime = kuhn_findPrime(table, marks, rowCovered, colCovered, n, m)))
+        while (!kuhn_findPrime(table, marks, rowCovered, colCovered, altRow, altCol, n, m))
 	    kuhn_addAndSubtract(table, rowCovered, colCovered, n, m);
 
-	kuhn_altMarks(marks, altRow, altCol, colMarks, rowPrimes, prime, n, m);
-	free(prime);
+	kuhn_altMarks(marks, altRow, altCol, colMarks, rowPrimes, n, m);
     }
     
     free(rowCovered);
@@ -381,7 +378,7 @@ boolean kuhn_isDone(byte** marks, boolean* colCovered, size_t n, size_t m)
  * @param   m           The table's width
  * @return              The row and column of the found print, <code>NULL</code> will be returned if none can be found
  */
-size_t* kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* colCovered, size_t n, size_t m)
+boolean kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* colCovered, size_t* primeRow, size_t* primeCol, size_t n, size_t m)
 {
     size_t i, j;
     BitSet zeroes;
@@ -404,7 +401,7 @@ size_t* kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* col
 	if (p < 0)
         {
 	    BitSet_free(&zeroes);
-	    return NULL;
+	    return FALSE;
 	}
 	
 	row = (size_t)p / m;
@@ -450,11 +447,10 @@ size_t* kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* col
 	    BitSet_unset(&zeroes, row * m + col);
     }
 
-    size_t* rc = malloc(2 * sizeof(size_t));
-    rc[0] = row;
-    rc[1] = col;
+    *primeRow = row;
+    *primeCol = col;
     BitSet_free(&zeroes);
-    return rc;
+    return TRUE;
 }
 
 
@@ -470,11 +466,9 @@ size_t* kuhn_findPrime(cell** t, byte** marks, boolean* rowCovered, boolean* col
  * @param  n          The table's height
  * @param  m          The table's width
  */
-void kuhn_altMarks(byte** marks, size_t* altRow, size_t* altCol, ssize_t* colMarks, ssize_t* rowPrimes, size_t* prime, size_t n, size_t m)
+void kuhn_altMarks(byte** marks, size_t* altRow, size_t* altCol, ssize_t* colMarks, ssize_t* rowPrimes, size_t n, size_t m)
 {
     size_t index = 0, i, j;
-    altRow[0] = prime[0];
-    altCol[0] = prime[1];
     
     for (i = 0; i < n; i++)
         rowPrimes[i] = -1;
